@@ -77,6 +77,10 @@ To get a local copy of the project up and running, follow these steps:
 2. Create new albums and songs on the Spotify Admin page.
 3. Browse albums and songs, create playlists, and enjoy music.
 
+## Demo Video Link
+
+[PlanMyTrip Demo Video](https://www.youtube.com/watch?v=B_3PNPe022M)
+
 ## Screenshot
 
 ### Home Page
