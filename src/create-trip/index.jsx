@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import Logo from '../assets/logo.svg'
+import Logo from '../assets/logo.png'
 import { Input } from "@/components/ui/input";
 import { AI_PROMPT, SelectBudgetOptions, SelectTravelesList } from "@/constans/options";
 import { chatSession } from "@/service/AIModal";
@@ -96,44 +96,67 @@ function CreateTrip() {
     })
 
     const onGenerateTrip = async () => {
-        const user = localStorage.getItem('user');
-        toast.info("Please wait, the trip is being created.")
-        if (formData?.noOfDays > 5 && !formData?.location || !formData?.budget || !formData?.traveler) {
-            toast.error("Please fill all details.")
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (!user) {
+            setOpenDailog(true);
             return;
         } else {
-            if (!user) {
-                setOpenDailog(true);
+            if (formData?.noOfDays < 5 && formData?.location && formData?.budget && formData?.traveler) {
+                toast.info("Please wait, the trip is being created.");
+                setIsLoading(true);
+                const FINAL_PROMPT = AI_PROMPT
+                    .replace('{location}', formData?.location)
+                    .replace('{totalDays}', formData?.noOfDays)
+                    .replace('{traveler}', formData?.traveler)
+                    .replace('{budget}', formData?.budget);
+
+                try {
+                    const result = await chatSession.sendMessage(FINAL_PROMPT);
+                    setIsLoading(false);
+                    const tripDataText = result?.response?.text?.();
+                    if (typeof tripDataText === 'string') {
+                        toast.success("The trip was successfully created.");
+                        saveAiTrip(tripDataText);
+                    } else {
+                        throw new Error("Invalid trip data format");
+                    }
+                } catch (error) {
+                    setIsLoading(false);
+                    toast.error("An error occurred while creating the trip.");
+                    console.error("Error generating trip:", error);
+                }
+            } else {
+                toast.error("Please fill all details.");
                 return;
             }
-            setIsLoading(true);
-            const FINAL_PROMPT = AI_PROMPT
-                .replace('{location}', formData?.location)
-                .replace('{totalDays}', formData?.noOfDays)
-                .replace('{traveler}', formData?.traveler)
-                .replace('{budget}', formData?.budget)
-                .replace('{totalDays}', formData?.noOfDays)
-
-            const result = await chatSession.sendMessage(FINAL_PROMPT)
-            setIsLoading(false);
-            toast.success("The trip was successfully created.")
-            saveAiTrip(result?.response?.text());
         }
-    }
+    };
 
     const saveAiTrip = async (TripData) => {
-        setIsLoading(true)
+        setIsLoading(true);
         const user = JSON.parse(localStorage.getItem('user'));
         const docId = Date.now().toString();
+
+        let parsedTripData;
+
+        try {
+            parsedTripData = JSON.parse(TripData);
+        } catch (error) {
+            console.error("Error parsing trip data:", error);
+            toast.error("Failed to parse trip data.");
+            setIsLoading(false);
+            return;
+        }
+
         await setDoc(doc(db, "AITrips", docId), {
             userSelection: formData,
-            tripData: JSON.parse(TripData),
+            tripData: parsedTripData,
             userEmail: user?.email,
             id: docId
         });
         setIsLoading(false);
         navigate('/view-trip/' + docId);
-    }
+    };
 
     const GetUserProfile = (tokenInfo) => {
         axios.get(`https://www.googleapis.com/oauth2/v1/userinfo?access_token=${tokenInfo?.access_token}`, {
@@ -144,6 +167,7 @@ function CreateTrip() {
         }).then((resp) => {
             localStorage.setItem('user', JSON.stringify(resp.data));
             setOpenDailog(false);
+            window.location.reload();
             onGenerateTrip();
             toast("Preparing Your Travel Plan!")
         })

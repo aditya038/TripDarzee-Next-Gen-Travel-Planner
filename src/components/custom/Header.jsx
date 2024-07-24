@@ -44,7 +44,6 @@ function Header() {
             return;
         }
     }
-    console.log('user', user)
 
     return (
         <div className='p-2 shadow-sm flex justify-between items-center px-24'>

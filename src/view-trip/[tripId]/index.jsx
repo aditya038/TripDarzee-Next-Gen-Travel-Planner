@@ -35,8 +35,6 @@ function ViewTrip() {
             <Hotels trip={trip} />
             {/* Daily Plan */}
             <PlaceToVisit trip={trip} />
-            {/* Footer */}
-            <Footer />
         </div>
     )
 }

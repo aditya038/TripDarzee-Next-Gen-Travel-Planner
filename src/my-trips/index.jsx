@@ -1,8 +1,9 @@
 import UserTripCardItem from '@/components/my-trips/UserTripCardItem';
 import { db } from '@/service/firebaseConfig';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MdDeleteForever } from "react-icons/md";
 
 function MyTrips() {
     const navigate = useNavigate();
@@ -24,9 +25,19 @@ function MyTrips() {
         setUserTrips(trips);
     }
 
+    const deleteUserTripById = async (tripId) => {
+        if (!user) {
+            navigate('/');
+            return;
+        }
+        const docRef = doc(db, 'AITrips', tripId);
+        await deleteDoc(docRef);
+        window.location.reload();
+    }
+
     useEffect(() => {
         getUserTrips();
-    }, []); // Empty dependency array to run only once
+    }, []);
 
     return (
         <div className='sm:px-10 md:px-32 lg:px-44 xl:px-96 px-5 mt-10'>
@@ -34,7 +45,12 @@ function MyTrips() {
 
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-5'>
                 {userTrips?.length > 0 ? userTrips.map((trip, index) => (
-                    <UserTripCardItem key={index} trip={trip} />
+                    <div key={index} className='hover:scale-105 transition-all'>
+                        <div onClick={() => deleteUserTripById(trip.id)} className='absolute z-10 cursor-pointer bg-white shadow-md rounded-full mt-2 ml-2 p-1 border hover:bg-gray-100'>
+                            <MdDeleteForever className='text-red-600  w-5 h-5 hover:text-red-500 hover:scale-110 ' />
+                        </div>
+                        <UserTripCardItem trip={trip} />
+                    </div>
                 ))
                     :
                     [1, 2, 3, 4, 5, 6].map((item, index) => (
