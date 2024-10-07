@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
-import Logo from '../assets/logo.png'
+import Logo from '../assets/logo.png';
 import { Input } from "@/components/ui/input";
 import { AI_PROMPT, SelectBudgetOptions, SelectTravelesList } from "@/constans/options";
 import { chatSession } from "@/service/AIModal";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { toast } from "sonner";
 import { FcGoogle } from "react-icons/fc";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -13,13 +13,16 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-} from "@/components/ui/dialog"
+} from "@/components/ui/dialog";
 import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
-import { AutoComplete, Form, TreeSelect } from 'antd';
+import { AutoComplete, Form } from 'antd';
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "@/service/firebaseConfig";
 import { useNavigate } from "react-router-dom";
+import { FaRobot, FaTimes } from 'react-icons/fa'; // Import chatbot and close icons
+import Chatbot from './Chatbot.jsx'; // Import the Chatbot component
+import './Chatbot.css'; // Import the CSS file
 
 function CreateTrip() {
     const [openDailog, setOpenDailog] = useState(false);
@@ -35,6 +38,8 @@ function CreateTrip() {
     const [filteredOptions, setFilteredOptions] = useState([]);
     const [searchText, setSearchText] = useState('');
     const [selectedLocation, setSelectedLocation] = useState(null);
+    const [loading, setLoading] = useState(false); // Loading state for chatbot response
+    const [chatVisible, setChatVisible] = useState(false); // State to toggle chat visibility
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -55,18 +60,16 @@ function CreateTrip() {
                 label: `${city.city}, ${city.country}`,
             }));
 
-            const allOptions = [...countryOptions, ...cityOptions]
+            const allOptions = [...countryOptions, ...cityOptions];
             setOptions(allOptions);
-
+            setFilteredOptions(allOptions); // Initialize filtered options
         } catch (error) {
             console.error("Error fetching data:", error);
         }
     };
 
-
     const handleSearch = (text) => {
         setSearchText(text);
-        handleInputChange('location', text);
         if (text) {
             const newFilteredOptions = options.filter(option =>
                 option.label.toLowerCase().includes(text.toLowerCase())
@@ -77,7 +80,7 @@ function CreateTrip() {
         }
     };
 
-    const handleTreeSelectChange = (value) => {
+    const handleSelect = (value) => {
         setSelectedLocation(value);
         setSearchText(value);
         handleInputChange('location', value);
@@ -93,7 +96,7 @@ function CreateTrip() {
     const login = useGoogleLogin({
         onSuccess: (codeResp) => GetUserProfile(codeResp),
         onError: (error) => console.log(error)
-    })
+    });
 
     const onGenerateTrip = async () => {
         const user = JSON.parse(localStorage.getItem('user'));
@@ -140,10 +143,21 @@ function CreateTrip() {
         let parsedTripData;
 
         try {
-            parsedTripData = JSON.parse(TripData);
+            // Log the raw AI trip data for debugging
+            console.log("Raw Trip Data Text:", TripData);
+
+            // Clean up the AI response to ensure proper JSON formatting
+            const cleanedTripData = TripData
+                .replace(/,\s*}/g, "}")  // Remove trailing commas before closing braces
+                .replace(/,\s*\]/g, "]"); // Remove trailing commas before closing brackets
+
+            // Attempt to parse the cleaned-up JSON
+            parsedTripData = JSON.parse(cleanedTripData);
+
         } catch (error) {
-            console.error("Error parsing trip data:", error);
-            toast.error("Failed to parse trip data.");
+            console.error("Error parsing trip data:", error.message);
+            console.log("Original trip data:", TripData); // Log the raw data for debugging
+            toast.error("Failed to parse trip data. Please try again later.");
             setIsLoading(false);
             return;
         }
@@ -169,9 +183,9 @@ function CreateTrip() {
             setOpenDailog(false);
             window.location.reload();
             onGenerateTrip();
-            toast("Preparing Your Travel Plan!")
-        })
-    }
+            toast("Preparing Your Travel Plan!");
+        });
+    };
 
     return (
         <div className='sm:px-10 md:px-32 lg:px-96 xl:px-96 px-5 mt-10'>
@@ -180,23 +194,17 @@ function CreateTrip() {
 
             <div className="mt-20 flex flex-col gap-10">
                 <div>
-                    <h2 className='text-xl my-3 font-medium'>What is destination of choice?</h2>
+                    <h2 className='text-xl my-3 font-medium'>What is your destination of choice?</h2>
                     <div className="relative h-10 w-full">
                         <Form labelCol={{ span: 12 }} wrapperCol={{ span: 24 }}>
                             <Form.Item>
                                 <div style={{ display: 'flex' }}>
-                                    <TreeSelect
-                                        style={{ width: '30%' }}
-                                        treeData={options}
-                                        placeholder="Please select"
-                                        treeDefaultExpandAll
-                                        onChange={handleTreeSelectChange}
-                                    />
                                     <AutoComplete
-                                        style={{ width: '70%' }}
+                                        style={{ width: '100%' }}
                                         options={filteredOptions}
                                         value={searchText}
                                         onChange={handleSearch}
+                                        onSelect={handleSelect} // Handle selection from AutoComplete
                                         placeholder="Search for a country or city"
                                     />
                                 </div>
@@ -208,7 +216,7 @@ function CreateTrip() {
                     <h2 className='text-xl my-3 font-medium'>How many days are you planning your trip?</h2>
                     <div className="relative h-10 w-full">
                         <Input
-                            placeholder={"Ex.3"}
+                            placeholder={"Ex. 3"}
                             type={"number"}
                             onChange={(e) => handleInputChange('noOfDays', e.target.value)}
                         />
@@ -221,63 +229,71 @@ function CreateTrip() {
                 <div className="grid grid-cols-3 gap-5 mt-5">
                     {SelectBudgetOptions.map((item, index) => (
                         <div
-                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.budget == item.title && 'shadow-lg border-black'}`}
+                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.budget === item.title && 'shadow-lg border-black'}`}
                             key={index}
                             onClick={() => handleInputChange('budget', item.title)}
                         >
                             <h2 className="text-4xl">{item.icon}</h2>
                             <h2 className="font-bold text-lg">{item.title}</h2>
-                            <h2 className="text-sm text-gray-500">{item.desc}</h2>
+                            <p>{item.description}</p>
                         </div>
                     ))}
                 </div>
             </div>
 
             <div className="mt-20">
-                <h2 className='font-bold text-3xl'>Who do you plan on traveling with on your next adventure?</h2>
+                <h2 className='font-bold text-3xl'>How many people are traveling?</h2>
                 <div className="grid grid-cols-3 gap-5 mt-5">
                     {SelectTravelesList.map((item, index) => (
                         <div
-                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.traveler == item.people && 'shadow-lg border-black'}`}
+                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.traveler === item.title && 'shadow-lg border-black'}`}
                             key={index}
-                            onClick={() => handleInputChange('traveler', item.people)}
+                            onClick={() => handleInputChange('traveler', item.title)}
                         >
                             <h2 className="text-4xl">{item.icon}</h2>
                             <h2 className="font-bold text-lg">{item.title}</h2>
-                            <h2 className="text-sm text-gray-500">{item.desc}</h2>
+                            <p>{item.description}</p>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div className="my-14 flex justify-end">
-                <Button disable={isLoading} onClick={onGenerateTrip}>
-                    {isLoading ?
-                        <AiOutlineLoading3Quarters className="h-7 w-7 animate-spin" />
-                        :
-                        ("Generate Trip")}
+            <div className="mt-20 flex justify-between">
+                <Button
+                    onClick={onGenerateTrip}
+                    disabled={isLoading}
+                    className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                    {isLoading ? <AiOutlineLoading3Quarters className='animate-spin' /> : "Create Trip"}
+                </Button>
+                <Button
+                    variant="outline"
+                    onClick={() => setOpenDailog(true)}
+                >
+                    Login to Save Your Trip
                 </Button>
             </div>
+
+            {/* Add the Chatbot component */}
+            <Chatbot />
+
+            {/* Google Login Dialog */}
             <Dialog open={openDailog} onOpenChange={setOpenDailog}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle><img className='py-2 w-36' src={Logo} alt="Logo" /> </DialogTitle>
-                        <DialogDescription>
-                            <div>
-                                <h2 className="font-bold text-lg mb-3">Sign In With Google</h2>
-                                <p className="mb-3">Sign in to the App with Google authentication securely</p>
+                        <DialogTitle>
+                            <div className="flex justify-center items-center">
+                                <img src={Logo} alt="Logo" className="h-10" />
                             </div>
-
-                            <Button onClick={login} className="w-full gap-2 mt-5 flex items-center">
-                                <FcGoogle className="w-7 h-7" />
-                                Sign In With Google
+                        </DialogTitle>
+                        <DialogDescription className="flex justify-center">
+                            <Button onClick={() => login()} className="space-x-5">
+                                <FcGoogle className="h-7 w-7" /> <span>Login with Google</span>
                             </Button>
-
                         </DialogDescription>
                     </DialogHeader>
                 </DialogContent>
             </Dialog>
-
         </div>
     );
 }

@@ -74,7 +74,7 @@ function Header() {
 
                     </div>
                     :
-                    <Button onClick={openModal}>Sing In</Button>
+                    <Button onClick={openModal}>Sign In</Button>
                 }
             </div>
             <Dialog open={openDailog} onOpenChange={setOpenDailog}>

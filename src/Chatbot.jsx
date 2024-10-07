@@ -1,39 +1,16 @@
-import Footer from "@/components/view-trip/Footer";
-import Hotels from "@/components/view-trip/Hotels";
-import InfoSection from "@/components/view-trip/InfoSection";
-import PlaceToVisit from "@/components/view-trip/PlaceToVisit";
-import { db } from "@/service/firebaseConfig";
-import { doc, getDoc } from "firebase/firestore";
-import { useEffect, useState, useRef } from "react";
-import { useParams } from "react-router-dom";
-import { toast } from "sonner";
-import axios from "axios"; 
-import { FaRobot, FaTimes } from 'react-icons/fa'; // Import chatbot and close icons
-import './Chatbot.css'; // Import the CSS file
+// src/components/Chatbot.jsx
 
-function ViewTrip() {
-    const { tripId } = useParams();
-    const [trip, setTrip] = useState([]);
+import { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import { toast } from "sonner";
+import { FaRobot, FaTimes } from "react-icons/fa";
+
+function Chatbot({ tripId }) {
     const [message, setMessage] = useState(""); // User input for chatbot
     const [history, setHistory] = useState([]); // Chat history
     const [loading, setLoading] = useState(false); // Loading state for chatbot response
     const [chatVisible, setChatVisible] = useState(false); // State to toggle chat visibility
     const chatHistoryRef = useRef(null); // Reference to chat history for scrolling
-
-    // Used to get Trip Information from Firebase
-    const getTripData = async () => {
-        const docRef = doc(db, 'AITrips', tripId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            setTrip(docSnap.data());
-        } else {
-            toast.error('No Trip Found!');
-        }
-    };
-
-    useEffect(() => {
-        tripId && getTripData();
-    }, [tripId]);
 
     // Scroll to the bottom of the chat history
     useEffect(() => {
@@ -51,11 +28,11 @@ function ViewTrip() {
 
         setLoading(true); // Set loading state to true
         try {
-            const response = await axios.post('http://localhost:5000/chat', {
+            const response = await axios.post("http://localhost:5000/chat", {
                 message: message,
                 history: history
             });
-            setHistory(prevHistory => [
+            setHistory((prevHistory) => [
                 ...prevHistory,
                 { role: "user", parts: [message] },
                 { role: "model", parts: [response.data.response] }
@@ -70,16 +47,7 @@ function ViewTrip() {
     };
 
     return (
-        <div className="p-10 md:px-20 lg:px-44 xl:px-56">
-            {/* Information Section */}
-            <InfoSection trip={trip} />
-
-            {/* Recommended Hotels */}
-            <Hotels trip={trip} />
-
-            {/* Daily Plan */}
-            <PlaceToVisit trip={trip} />
-
+        <>
             {/* Chatbot Icon */}
             <div 
                 className="fixed bottom-4 right-4 cursor-pointer bg-blue-500 text-white rounded-full p-3 shadow-lg" 
@@ -133,11 +101,8 @@ function ViewTrip() {
                     </div>
                 </div>
             )}
-
-            {/* Footer */}
-            <Footer />
-        </div>
+        </>
     );
 }
 
-export default ViewTrip;
+export default Chatbot;
