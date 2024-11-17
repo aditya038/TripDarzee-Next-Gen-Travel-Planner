@@ -3,7 +3,7 @@ import Logo from '../assets/logo.png';
 import { Input } from "@/components/ui/input";
 import { AI_PROMPT, SelectBudgetOptions, SelectTravelesList } from "@/constans/options";
 import { chatSession } from "@/service/AIModal";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { FcGoogle } from "react-icons/fc";
 import { AiOutlineLoading3Quarters } from "react-icons/ai";
@@ -17,12 +17,11 @@ import {
 import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { AutoComplete, Form } from 'antd';
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDocs, collection } from "firebase/firestore";
 import { db } from "@/service/firebaseConfig";
 import { useNavigate } from "react-router-dom";
-import { FaRobot, FaTimes } from 'react-icons/fa'; // Import chatbot and close icons
-import Chatbot from './Chatbot.jsx'; // Import the Chatbot component
-import './Chatbot.css'; // Import the CSS file
+import Chatbot from './Chatbot.jsx';
+import UserTripCardItem from '@/components/my-trips/UserTripCardItem'; // Import the component for displaying user trips
 
 function CreateTrip() {
     const [openDailog, setOpenDailog] = useState(false);
@@ -37,13 +36,13 @@ function CreateTrip() {
     const [options, setOptions] = useState([]);
     const [filteredOptions, setFilteredOptions] = useState([]);
     const [searchText, setSearchText] = useState('');
-    const [selectedLocation, setSelectedLocation] = useState(null);
-    const [loading, setLoading] = useState(false); // Loading state for chatbot response
-    const [chatVisible, setChatVisible] = useState(false); // State to toggle chat visibility
+    const [loading, setLoading] = useState(false);
+    const [communityTrips, setCommunityTrips] = useState([]); // State for community trips
     const navigate = useNavigate();
 
     useEffect(() => {
         fetchCountriesAndCities();
+        fetchCommunityTrips(); // Fetch community trips when component mounts
     }, []);
 
     const fetchCountriesAndCities = async () => {
@@ -68,6 +67,19 @@ function CreateTrip() {
         }
     };
 
+    const fetchCommunityTrips = async () => {
+        try {
+            const querySnapshot = await getDocs(collection(db, 'AITrips'));
+            const trips = [];
+            querySnapshot.forEach((doc) => {
+                trips.push({ id: doc.id, ...doc.data() }); // Include document ID
+            });
+            setCommunityTrips(trips); // Update state with community trips
+        } catch (error) {
+            console.error("Error fetching community trips:", error);
+        }
+    };
+
     const handleSearch = (text) => {
         setSearchText(text);
         if (text) {
@@ -81,9 +93,11 @@ function CreateTrip() {
     };
 
     const handleSelect = (value) => {
-        setSelectedLocation(value);
+        setFormData({
+            ...formData,
+            location: value
+        });
         setSearchText(value);
-        handleInputChange('location', value);
     };
 
     const handleInputChange = (name, value) => {
@@ -204,7 +218,7 @@ function CreateTrip() {
                                         options={filteredOptions}
                                         value={searchText}
                                         onChange={handleSearch}
-                                        onSelect={handleSelect} // Handle selection from AutoComplete
+                                        onSelect={handleSelect}
                                         placeholder="Search for a country or city"
                                     />
                                 </div>
@@ -229,7 +243,7 @@ function CreateTrip() {
                 <div className="grid grid-cols-3 gap-5 mt-5">
                     {SelectBudgetOptions.map((item, index) => (
                         <div
-                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.budget === item.title && 'shadow-lg border-black'}`}
+                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.budget === item.title ? 'shadow-lg border-black' : ''}`}
                             key={index}
                             onClick={() => handleInputChange('budget', item.title)}
                         >
@@ -246,7 +260,7 @@ function CreateTrip() {
                 <div className="grid grid-cols-3 gap-5 mt-5">
                     {SelectTravelesList.map((item, index) => (
                         <div
-                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.traveler === item.title && 'shadow-lg border-black'}`}
+                            className={`p-4 cursor-pointer border rounded-lg hover:shadow-lg ${formData?.traveler === item.title ? 'shadow-lg border-black' : ''}`}
                             key={index}
                             onClick={() => handleInputChange('traveler', item.title)}
                         >
@@ -258,7 +272,7 @@ function CreateTrip() {
                 </div>
             </div>
 
-            <div className="mt-20 flex justify-between">
+            <div className="flex justify-center">
                 <Button
                     onClick={onGenerateTrip}
                     disabled={isLoading}
@@ -266,16 +280,24 @@ function CreateTrip() {
                 >
                     {isLoading ? <AiOutlineLoading3Quarters className='animate-spin' /> : "Create Trip"}
                 </Button>
-                <Button
-                    variant="outline"
-                    onClick={() => setOpenDailog(true)}
-                >
-                    Login to Save Your Trip
-                </Button>
             </div>
 
             {/* Add the Chatbot component */}
             <Chatbot />
+
+            {/* Community Trips Section */}
+            <div className='mt-20'>
+                <h2 className='font-bold text-3xl'>Community Trips</h2>
+                <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-5'>
+                    {communityTrips.length > 0 ? (
+                        communityTrips.map((trip, index) => (
+                            <UserTripCardItem key={index} trip={trip} />
+                        ))
+                    ) : (
+                        <p className='text-gray-500'>No community trips available yet.</p>
+                    )}
+                </div>
+            </div>
 
             {/* Google Login Dialog */}
             <Dialog open={openDailog} onOpenChange={setOpenDailog}>

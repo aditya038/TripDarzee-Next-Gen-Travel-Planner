@@ -47,7 +47,7 @@ function Header() {
 
     return (
         <div className='p-2 shadow-sm flex justify-between items-center px-24'>
-            <a href="/"><img className='py-2 h-16' src={Logo} alt="header logo" /></a>
+            <a href="/"><img className='py-2 h-16' src={Logo} alt="header logo" height={150} /></a>
             <div className="">
                 {user ?
                     <div className='flex gap-3'>

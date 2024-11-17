@@ -7,20 +7,20 @@ import { doc, getDoc } from "firebase/firestore";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import axios from "axios"; 
+import axios from "axios";
 import { FaRobot, FaTimes } from 'react-icons/fa'; // Import chatbot and close icons
 import './Chatbot.css'; // Import the CSS file
 
 function ViewTrip() {
     const { tripId } = useParams();
-    const [trip, setTrip] = useState([]);
+    const [trip, setTrip] = useState({}); // Trip data
     const [message, setMessage] = useState(""); // User input for chatbot
     const [history, setHistory] = useState([]); // Chat history
     const [loading, setLoading] = useState(false); // Loading state for chatbot response
     const [chatVisible, setChatVisible] = useState(false); // State to toggle chat visibility
     const chatHistoryRef = useRef(null); // Reference to chat history for scrolling
 
-    // Used to get Trip Information from Firebase
+    // Fetch Trip Information from Firebase
     const getTripData = async () => {
         const docRef = doc(db, 'AITrips', tripId);
         const docSnap = await getDoc(docRef);
@@ -32,7 +32,7 @@ function ViewTrip() {
     };
 
     useEffect(() => {
-        tripId && getTripData();
+        tripId && getTripData(); // Fetch trip data when tripId changes
     }, [tripId]);
 
     // Scroll to the bottom of the chat history
@@ -42,19 +42,36 @@ function ViewTrip() {
         }
     }, [history]);
 
+    // Effect to display the welcome message when chat opens
+    useEffect(() => {
+        if (chatVisible) {
+            const welcomeMessage = {
+                role: "model",
+                parts: [
+                    "Hello there! 👋 Welcome to TripDarzee! I'm TravelMitra, your personal travel assistant. " +
+                    "What kind of trip are you dreaming of? Tell me all about it, and I'll help you weave a perfect travel tapestry! 🧵✨"
+                ]
+            };
+            setHistory([welcomeMessage]); // Set the initial history with the welcome message
+        } else {
+            setHistory([]); // Clear chat history when chat is closed
+        }
+    }, [chatVisible]);
+
     // Handle chatbot message
     const handleChat = async () => {
-        if (!message) {
-            toast.error("Please enter a message!");
+        if (!message.trim()) {
+            toast.error("Please enter a message!"); // Show error if message is empty
             return;
         }
 
         setLoading(true); // Set loading state to true
         try {
             const response = await axios.post('http://localhost:5000/chat', {
-                message: message,
-                history: history
+                message: message
             });
+
+            // Update chat history with user message and response
             setHistory(prevHistory => [
                 ...prevHistory,
                 { role: "user", parts: [message] },
@@ -63,7 +80,7 @@ function ViewTrip() {
             setMessage(""); // Clear input field after sending
         } catch (error) {
             console.error("Error interacting with the chatbot:", error.response || error.message);
-            toast.error("Error interacting with the chatbot");
+            toast.error("Error interacting with the chatbot. Please try again later.");
         } finally {
             setLoading(false); // Set loading state to false
         }
@@ -90,7 +107,7 @@ function ViewTrip() {
 
             {/* Chatbot Section */}
             {chatVisible && (
-                <div className="chatbot bg-white shadow-lg rounded-lg p-4 mt-10 max-w-lg mx-auto fixed bottom-16 right-4">
+                <div className="chatbot bg-white shadow-lg rounded-lg p-4 mt-10 max-w-lg mx-auto fixed bottom-16 right-4 z-50">
                     <div className="chat-header flex items-center justify-between p-4 border-b">
                         <h2 className="text-lg font-semibold">TravelMitra</h2>
                         {/* Close Button/Icon */}
